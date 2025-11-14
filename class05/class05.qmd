@@ -1,0 +1,98 @@
+---
+title: "Class05: Data vis with ggplot2"
+author: "Mari Williams (PID: A15858833)"
+format: pdf
+---
+Today we will be playing with plotting and graphics in R! 
+
+There are many ways to make cool figures in R. 
+
+There are base R graphs like `plot()`, `hist()`, and `boxplot()`.
+
+**ggplot** is a popular add-on package.
+
+```{r}
+head(cars)
+```
+Let's plot this with base R.
+
+```{r}
+plot(cars)
+```
+```{r}
+head(mtcars)
+```
+Let's plot `mpg` vs `displacement`
+```{r}
+plot(mtcars$mpg, mtcars$disp)
+```
+```{r}
+hist(mtcars$mpg)
+```
+The main function on the ggplot2 package is **ggplot()**.  To install the package, use the function `install.package`. I already had ggplot2 installed. You have to call it with `library(ggplot)`.
+```{r}
+library(ggplot2)
+ggplot(cars) + aes(speed, dist) + geom_point()
+```
+ggplot needs:
+- **data**, given with `ggplot(x)`, defines the source of the data
+-**aesthetic**, given with `aes(x,y)`, defines the plotted data and axes
+-**geom**, given with `geom_(point)` for example, defines how it is visualized. 
+
+Base R is nearly always faster, but ggplot is more flexible and customized
+
+### Let's add more layers
+Let's add a line, a title, a subtitle, a caption, and custom axis labels.
+
+```{r}
+ggplot(cars) + aes(speed, dist) + geom_point() + geom_smooth(method="lm", se=FALSE) + 
+  labs(
+    title = "Distance vs Speed",
+    subtitle = "Fit to a linear model line",
+    x = "Speed (mph)",
+    y = "Stopping Distance (ft)") + 
+  theme_void()
+  
+```
+### Let's plot expression data!
+```{r}
+url <- "https://bioboot.github.io/bimm143_S20/class-material/up_down_expression.txt"
+genes <- read.delim(url)
+head(genes)
+```
+ >Q1. How many genes in this dataset?
+ 
+```{r}
+dim(genes)
+```
+There are `r nrow(genes)` genes in this dataset
+
+```{r}
+ggplot(genes) + aes(Condition1, Condition2, col=State, label=Gene) + geom_point() + scale_color_manual(values = c("blue", "gray", "red")) +
+  labs(
+    title = "Genes",
+    x = "Condition 1",
+    y = "COndition 2")  
+```
+
+##going further
+
+```{r}
+url <- "https://raw.githubusercontent.com/jennybc/gapminder/master/inst/extdata/gapminder.tsv"
+
+gapminder <- read.delim(url)
+```
+
+```{r}
+head(gapminder)
+tail(gapminder)
+```
+
+```{r}
+ggplot(gapminder) + aes(gdpPercap, lifeExp, col=continent, label=country) + geom_point()  +
+  labs(
+    title = "gapminder",
+    x = "GDP per Capita ",
+    y = "Life expetancy (years)")  + facet_wrap(~continent)
+```
+Seems lower GDP per capita can correlate with lower life expectancies. Capitalism...
