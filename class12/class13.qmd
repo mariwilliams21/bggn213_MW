@@ -1,0 +1,191 @@
+---
+title: "class13"
+format: pdf
+---
+
+##background
+
+##data import
+```{r}
+url1 <- "https://bioboot.github.io/bggn213_F25/class-material/GSE37704_featurecounts.csv"
+url2 <- "https://bioboot.github.io/bggn213_F25/class-material/GSE37704_metadata.csv"
+
+counts <- read.csv(url1, row.names = 1)
+metadata <- read.csv(url2)
+```
+
+```{r}
+dim(counts)
+metadata
+head(counts)
+```
+
+## setup DESeq
+```{r}
+library(DESeq2)
+```
+remove first col of counts
+```{r}
+counts <- counts[,-1]
+head(counts)
+```
+```{r}
+if (all(colnames(counts) == metadata$id) == FALSE){
+  message("check colnames in counts matches metadata")
+  exit
+}
+```
+
+Filter out 0 counts
+```{r}
+zero_count_genes <- rowSums(counts) == 0
+
+filtered_counts <- counts[!zero_count_genes, ]
+```
+
+
+##run DESeq
+```{r}
+dds <- DESeqDataSetFromMatrix(countData=filtered_counts, 
+                              colData=metadata, 
+                              design=~condition)
+dds <- DESeq(dds)
+
+res<- results(dds)
+```
+```{r}
+head(res)
+```
+
+##add
+
+```{r}
+library("org.Hs.eg.db")
+```
+```{r}
+res$symbol <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res), # Our genenames
+                     keytype="ENSEMBL",        # The format of our genenames
+                     column="SYMBOL",          # The new format we want to add
+                     multiVals="first")
+res$entrez <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res),
+                     column="ENTREZID",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+```
+## Visualize it!
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+res$color <- "gray"
+res$color[(res$padj < 0.01) & (abs(res$log2FoldChange) > 2)] <- "red"
+res$padj[res$padj == 0] <- 1e-300
+res$yval <- -log10(res$padj)
+
+top25 <- res[order(res$padj), ][1:25, ]
+
+ggplot(res, aes(x = log2FoldChange, y = yval, color = color)) +
+  geom_point() +
+  geom_text_repel(
+    data = top25,
+    aes(label = symbol),
+    size = 3.5,
+    max.overlaps = Inf,
+    box.padding = 0.5,
+    segment.color = "gray50"
+  ) +
+  scale_color_identity() +
+  geom_vline(xintercept = c(-2, 2), linetype = "dashed", color = "gray") +
+  geom_hline(yintercept = -log10(0.1), linetype = "dashed", color = "gray") +
+  labs(
+    x = "Log2(Fold Change)",
+    y = "-Log10(Adjusted P-value)",
+    title = "Volcano Plot"
+  ) +
+  coord_cartesian(ylim = c(0, 400)) +   
+  theme_minimal(base_size = 14)
+```
+There was some crazy high log10(p-values), so I had to cap them to keep them in the plot
+
+## saving data
+```{r}
+res = res[order(res$pvalue),]
+write.csv(res, file="deseq_results.csv")
+```
+
+##pathway analysis
+
+```{r}
+library(gage)
+library(gageData)
+
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+kegg.sets.hs = kegg.sets.hs[sigmet.idx.hs]
+```
+
+```{r}
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+keggres = gage(foldchanges, gsets=kegg.sets.hs)
+head(keggres$less)
+head(keggres$greater)
+
+```
+```{r}
+library(pathview)
+pathview(gene.data=foldchanges, pathway.id="hsa04110")
+
+```
+
+![pathway](hsa04110.pathview.png)
+
+```{r}
+upkeggrespathways <- rownames(keggres$greater)[1:5]
+upkeggresids = substr(upkeggrespathways, start=1, stop=8)
+upkeggresids
+
+downkeggrespathways <- rownames(keggres$less)[1:5]
+downkeggresids = substr(downkeggrespathways, start=1, stop=8)
+downkeggresids
+```
+```{r}
+pathview(gene.data=foldchanges, pathway.id=upkeggresids, species="hsa")
+pathview(gene.data=foldchanges, pathway.id=downkeggresids, species="hsa")
+
+```
+
+##GO
+
+```{r}
+data(go.sets.hs)
+data(go.subs.hs)
+gobpsets = go.sets.hs[go.subs.hs$BP]
+
+gobpres = gage(foldchanges, gsets=gobpsets, same.dir=TRUE)
+
+lapply(gobpres, head)
+```
+##reactome
+```{r}
+sig_genes <- res[res$padj <= 0.05 & !is.na(res$padj), "symbol"]
+print(paste("Total number of significant genes:", length(sig_genes)))
+write.table(sig_genes, file="significant_genes.txt", row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+```
+```{r}
+sig_entrez <- res[res$padj <= 0.05 & !is.na(res$padj), "entrez"]
+write.table(sig_genes, file="significant_genes.txt", row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+```
+
+
+Also tried enrichR for some interesting pathways!
+
+![reactome](Reactome_Pathways_2024_bar_graph.png)
+![kegg](KEGG_2021_Human_bar_graph.png)
+
+

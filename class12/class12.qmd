@@ -1,0 +1,166 @@
+---
+title: "Class 12"
+author: "Mari Williams (A15858833)"
+format: pdf
+toc: TRUE
+---
+
+## Background
+Using DESeq2 to analyze some RNAseq data
+```{r}
+library(DESeq2)
+```
+```{r}
+counts <- read.csv("https://bioboot.github.io/bimm143_W18/class-material/airway_scaledcounts.csv", row.names=1)
+metadata <-  read.csv("https://bioboot.github.io/bimm143_W18/class-material/airway_metadata.csv")
+```
+
+```{r}
+dim(counts)
+dim(metadata)
+```
+```{r}
+metadata
+```
+
+***Q1. How many genes are in this dataset?***
+
+38694 genes
+
+***Q2. How many experiments do we have?***
+
+8
+
+***Q3. How many ‘control’ cell lines do we have?***
+
+```{r}
+length(which(metadata$dex == "control"))
+```
+4 controls
+
+1. Seperate the control and treatment samples and average their counts for each gene
+2. compare the means for each gene and find genes that have significant changes in the counts
+
+```{r}
+control <- metadata$dex=="control"
+control.counts <- counts[ ,control]
+control.mean <- rowMeans( control.counts )
+
+treated <- metadata$dex=="treated"
+treated.counts <- counts[ ,treated]
+treated.mean <- rowMeans( treated.counts )
+```
+
+```{r}
+library(ggplot2)
+meancounts <- data.frame(control.mean, treated.mean)
+ggplot(meancounts) + aes(control.mean, treated.mean) + geom_point() + scale_x_log10() +
+  scale_y_log10() 
+```
+Foldchange! We use log2 to represent 1 as a doubling and -1 as halfing, keeping units understandable and clean. Standard log2fc for "up" or "down" regulation is more extreme than 2 and -2
+
+```{r}
+meancounts$log2fc <- log2(meancounts$treated.mean/meancounts$control.mean)
+head(meancounts)
+```
+
+
+```{r}
+zero.inds <- which(meancounts[,1:2] == 0, arr.ind=T)[,1]
+trimmed <- (meancounts[-zero.inds,])
+length(which(trimmed$log2fc>=2))
+length(which(trimmed$log2fc<=-2))
+
+```
+>How many upregulated? downregulated?
+
+314 up and 485 down
+
+
+## DESeq2
+```{r}
+library(DESeq2)
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex)
+dds <- DESeq(dds)
+
+res<- results(dds)
+```
+
+***Volcano plot time***
+```{r}
+plot( res$log2FoldChange,  -log(res$padj), 
+      xlab="Log2(FoldChange)",
+      ylab="-Log(P-value)")
+```
+
+```{r}
+res$color <- "gray"
+res$color[(res$padj < 0.01) & (abs(res$log2FoldChange) > 2)] <- "red"
+
+ggplot(res, aes(x = log2FoldChange, y = -log(padj), color = color)) +
+  geom_point() +
+  scale_color_identity() +  
+  geom_vline(xintercept = c(-2, 2), linetype = "dashed", color = "gray") +
+  geom_hline(yintercept = -log(0.1), linetype = "dashed", color = "gray") +
+  labs(
+    x = "Log2(Fold Change)",
+    y = "-Log(P-value)",
+    title = "Volcano Plot"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+##add gene symbols and annotation
+```{r}
+library("org.Hs.eg.db")
+```
+```{r}
+res$symbol <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res), # Our genenames
+                     keytype="ENSEMBL",        # The format of our genenames
+                     column="SYMBOL",          # The new format we want to add
+                     multiVals="first")
+```
+```{r}
+res$entrez <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res),
+                     column="ENTREZID",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+
+res$uniprot <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res),
+                     column="UNIPROT",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+
+res$genename <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res),
+                     column="GENENAME",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+
+head(res)
+```
+
+```{r}
+
+library(pathview)
+library(gage)
+library(gageData)
+
+data(kegg.sets.hs)
+```
+```{r}
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+head(foldchanges)
+
+keggres = gage(foldchanges, gsets=kegg.sets.hs)
+pathview(gene.data=foldchanges, pathway.id="hsa05310")
+
+```
+![path](hsa05310.pathview.png)
+
