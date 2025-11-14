@@ -1,4 +1,4 @@
 # bggn213_MW
-repo for bggn 213 classwork 2025
+repo for bggn 213 classwork 2025 ucsd
 
 changed
