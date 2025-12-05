@@ -7,3 +7,4 @@ changed
 -Class 04: [R Fundamentals]
 
 - Class 05: [Data Viz with ggplot](class05/class05.md)
+- Class 16: [Genomics](class16/class16.md)
