@@ -1,6 +1,6 @@
 ---
 title: "class13"
-format: pdf
+format: gfm
 ---
 
 ##background
