@@ -5,3 +5,4 @@ changed
 
 ##Class content
 -Class 04: [R Fundamentals]
+-Class 05: [Data Viz with ggplot]
