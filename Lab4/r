@@ -1,0 +1,6 @@
+x <- 1:50
+plot(x)
+ploy(x, col="blue")
+
+log(10)
+log(10,2)

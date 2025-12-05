@@ -1,0 +1,37 @@
+---
+title: "hw_genomics"
+author: "Mari Williams (A15858833)"
+format: pdf
+---
+
+```{r}
+df <- read.table("https://bioboot.github.io/bggn213_W19/class-material/rs8067378_ENSG00000172057.6.txt",  header= TRUE, sep=" ")
+head(df)
+```
+###Q13
+
+```{r}
+summary(df)
+table(df$geno)
+
+```
+108 A/A, 233 A/G, and 121 G/G. 
+```{r}
+library(dplyr)
+
+df %>%
+  group_by(geno) %>%
+  summarise(mean_exp = mean(exp))
+```
+
+###Q14
+
+```{r}
+library(ggplot2)
+
+ggplot(df, aes(x = geno, y = exp)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.1, alpha = 0.5) +
+  labs(x = "Genotype", y = "Expression", title = "Expression by genotype")
+```
+
