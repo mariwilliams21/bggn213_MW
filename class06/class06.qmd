@@ -1,0 +1,141 @@
+---
+title: "Class06"
+author: "Mari Williams (PID: A15858833)"
+format: gfm
+toc: true
+---
+
+## Creating functions
+
+Functions are defined by 3 parts:
+
+**Name**: Can be whatever you like
+
+**Arguments**: The inputs you give the function to process
+
+**Body**: Bulk of the code that runs based on the inputs given
+
+
+
+## First function
+
+```{r}
+add <- function(x,y=1) {
+  x+y
+}
+```
+
+You can add options to executable code like this 
+
+```{r}
+add(c(10,10), 100)
+```
+## Function 2
+
+Write a function to generate random nucleotide sequences of a user specified length
+
+```{r}
+rand_nuc <- function(x){
+  nucleotides <- c("A", "G", "T", "C")
+  paste(sample(nucleotides, size=x, replace=TRUE), collapse ="")
+  
+}
+rand_nuc(20)
+```
+Add the ability to return a multielement vector or single fasta
+```{r}
+rand_nuc <- function(x, fasta=TRUE){
+  nucleotides <- c("A", "G", "T", "C")
+  v<- sample(nucleotides, size=x, replace=TRUE)
+
+    if (fasta==TRUE){
+    paste(v, collapse="")
+  }
+  else
+  v
+  
+}
+rand_nuc(20)
+rand_nuc(20, fasta=FALSE)
+```
+## Generate protein
+```{r}
+rand_protein <- function(x, fasta = TRUE) {
+  # 20 standard amino acids
+  amino_acids <- c("A", "R", "N", "D", "C", 
+                   "Q", "E", "G", "H", "I", 
+                   "L", "K", "M", "F", "P", 
+                   "S", "T", "W", "Y", "V")
+  
+  # sample random amino acids
+  seq_vec <- sample(amino_acids, size = x, replace = TRUE)
+  
+  # return as FASTA string or vector
+  if (fasta) {
+    paste(seq_vec, collapse = "")
+  } else {
+    seq_vec
+  }
+}
+
+for (i in c(6:8) ){
+  print(rand_protein(i))
+}
+
+sapply(6:8, rand_protein)
+
+
+```
+## Q1
+**Grading function**
+
+```{r}
+
+grade <- function(gradesheet){
+  #read in gradesheet and makes a new dataframe from it
+  gsheet <- read.csv(gradesheet)
+  mean_grades <- data.frame(name = gsheet$X, stringsAsFactors = FALSE)
+  mean_grades$grade_average <- NA
+  
+  #make a for loop for each student on the gradesheet
+  for (i in 1:nrow(gsheet)){
+      rowvec <- as.integer(gsheet[i, 2:6]) #gets all the scores as a numeric vector
+      rowvec <- sort(rowvec, na.last = FALSE)[-1] #Orders the vector from smallest to largest, with NAs counted as the smallest
+      rowvec[is.na(rowvec)] <- 0 #all remaining NAs will be turned into a 0 for grading purposes
+      mean_grades$grade_average[i] <- mean(rowvec) #adds the mean average of the remaining grades to the new df
+      
+  }
+  mean_grades #returns the new df
+}
+grade("student_homework.csv")
+```
+## Q2
+
+```{r}
+grades<-grade("student_homework.csv")
+sorted_grades <- grades[order(-grades$grade_average), ]
+head(sorted_grades)
+
+```
+Student 18 has the highest average grade after dropping the lowest score.
+
+## Q3
+```{r}
+gsheet <- read.csv("student_homework.csv")
+assignment_means <- colMeans(gsheet[, 2:6], na.rm = TRUE)
+assignment_means
+```
+HW2 is the lowest average if we drop the NAs. 
+
+If we count the NAs as zero...
+```{r}
+assignment_means <- apply(gsheet[, 2:6], 2, function(col) {
+  col[is.na(col)] <- 0
+  mean(col)
+})
+assignment_means
+
+```
+The lowest is still hw2!
+
+

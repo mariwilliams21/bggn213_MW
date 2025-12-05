@@ -1,0 +1,135 @@
+---
+title: "Lab 7"
+author: "Mari Williams (PID: A15858833)"
+format: gfm
+---
+
+### Q1
+```{r}
+x <- read.csv("https://tinyurl.com/UK-foods")
+dim(x)
+```
+```{r}
+head(x)
+```
+
+
+### K means clustering
+```{r}
+x<-(rnorm(60))
+```
+```{r}
+k<- kmeans(x, 4)
+```
+```{r}
+plot(x, col= k$cluster)
+```
+```{r}
+ans <- NULL
+for (i in 1:6){
+  ans <- c(ans, kmeans(x, centers=i)$tot.withinss)
+}
+plot(ans)
+```
+
+```{r}
+d<- dist(x)
+hc <- hclust(d)
+```
+```{r}
+plot(hc)
+
+```
+```{r}
+grps <- cutree(hc, h=7)
+plot(x, col= grps)
+```
+### PCA
+
+***Q1 How many rows and columns are in your new data frame named x? What R functions could you use to answer this questions?***
+```{r}
+x <- read.csv("https://tinyurl.com/UK-foods")
+dim(x)
+```
+```{r}
+head(x)
+rownames(x) <- x[,1]
+x <- x[,-1]
+head(x)
+x <- read.csv("https://tinyurl.com/UK-foods", row.names=1)
+head(x)
+```
+***Q2 Which approach to solving the ‘row-names problem’ mentioned above do you prefer and why? Is one approach more robust than another under certain circumstances?***
+I like to read the names as it comes in via the url, since we don't have to deal with dropping a column after.
+
+```{r}
+rainbow(nrow(x))
+```
+```{r}
+barplot(as.matrix(x), beside=F, col=rainbow(nrow(x)))
+
+```
+***Q3: Changing what optional argument in the above barplot() function results in the following plot?***
+beside=F
+
+```{r}
+library(tidyr)
+
+# Convert data to long format for ggplot with `pivot_longer()`
+x_long <- x |> 
+          tibble::rownames_to_column("Food") |> 
+          pivot_longer(cols = -Food, 
+                       names_to = "Country", 
+                       values_to = "Consumption")
+
+dim(x_long)
+```
+***Q4: Changing what optional argument in the above ggplot() code results in a stacked barplot figure?***
+Change position = "dodge" to "stack"
+```{r}
+library(ggplot2)
+
+ggplot(x_long) +
+  aes(x = Country, y = Consumption, fill = Food) +
+  geom_col(position = "stack") +
+  theme_bw()
+```
+
+***Q5: We can use the pairs() function to generate all pairwise plots for our countries. Can you make sense of the following code and resulting figure? What does it mean if a given point lies on the diagonal for a given plot?***
+It is the correlation of the two countries together. Dots on the diagnol are the same for both countries on the axis. 
+```{r}
+pairs(x, col=rainbow(nrow(x)), pch=16)
+
+```
+
+***Q6. Based on the pairs and heatmap figures, which countries cluster together and what does this suggest about their food consumption patterns? Can you easily tell what the main differences between N. Ireland and the other countries of the UK in terms of this data-set?***
+No, it's hard to tell
+```{r}
+library(pheatmap)
+
+pheatmap( as.matrix(x) )
+```
+
+### PCA Time
+
+```{r}
+t(x)
+
+```
+```{r}
+pca <- prcomp(t(x))
+
+summary(pca)
+```
+***Q7. Complete the code below to generate a plot of PC1 vs PC2. The second line adds text labels over the data points.***
+***Q8. Customize your plot so that the colors of the country names match the colors in our UK and Ireland map and table at start of this document.***
+```{r}
+library(ggplot2)
+ggplot(pca$x) + aes(PC1, PC2, label=rownames(pca$x), colour = rownames(pca$x)) + geom_point()+ geom_text(vjust=1) + xlab("PC1") +
+  ylab("PC2") 
+```
+```{r}
+ggplot(pca$x) + aes(PC1, PC2, label=rownames(pca$x)) + geom_point()+ geom_text(vjust=1) + xlab("PC1") +
+  ylab("PC2") 
+```
+

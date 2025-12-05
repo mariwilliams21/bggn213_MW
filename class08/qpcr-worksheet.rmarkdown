@@ -1,0 +1,297 @@
+---
+title: "Hippocampus Hypoxia QPCR"
+author: "Mari Williams"
+format: html
+---
+
+
+
+### Data Prep
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r}
+df <- read.csv("hyp_hp.csv", row.names=1)
+df$treatment <- c(rep("fent", 6), rep("saline", 5))
+```
+
+```{r}
+gene_names <- c("ACTB", "PGK1", "ENO1", "BNIP3", "Pdk1", "EPO", "SLC2a1", "HIF1a")
+rep_names  <- rep(1:3, times = length(gene_names))
+gene_labels <- rep(gene_names, each = 3)
+new_names <- paste0(gene_labels, "_", rep_names)
+
+colnames(df)[1:24] <- new_names
+colnames(df)[25] <- "treatment"   # last column is treatment
+
+df$sample_id <- seq_len(nrow(df))
+head(df)
+```
+
+```{r}
+
+df_long <- df %>%
+  pivot_longer(
+    cols = all_of(new_names),
+    names_to = "gene_rep",
+    values_to = "CT"
+  ) %>%
+  separate(gene_rep, into = c("gene", "rep"), sep = "_", remove = TRUE)
+head(df_long)
+```
+
+### Averaging and Computing delta CT
+
+```{r}
+# average the triplicates
+gene_means <- df_long %>%
+  group_by(sample_id, treatment, gene) %>%
+  summarise(mean_CT = mean(CT, na.rm = TRUE), .groups = "drop")
+
+# make a df with the GAPDH means
+gapdh_means <- gene_means %>%
+  filter(gene == "ACTB") %>%
+  select(sample_id, treatment, gapdh_mean = mean_CT)
+gene_means
+gapdh_means
+```
+
+```{r}
+#add the gapdh mean for that mouse to the column, and then subtract it from the CT of each other gene 
+dCT <- gene_means %>%
+  left_join(gapdh_means, by = c("sample_id", "treatment")) %>%
+  mutate(dCT = mean_CT - gapdh_mean) %>%
+  filter(gene != "ACTB")   
+
+dCT_summary <- dCT %>%
+  group_by(treatment, gene) %>%
+  summarise(mean_dCT = mean(dCT, na.rm = TRUE),
+            sd_dCT   = sd(dCT, na.rm = TRUE),
+            .groups = "drop")
+dCT_summary
+```
+
+### Welch test
+
+
+
+```{r}
+t_results <- dCT %>%
+  group_by(gene) %>%
+  summarise(
+    t_pvalue   = t.test(dCT ~ treatment, var.equal = FALSE)$p.value,
+    t_stat     = unname(t.test(dCT ~ treatment, var.equal = FALSE)$statistic),
+    mean_fent   = mean(dCT[treatment == "fent"], na.rm = TRUE),
+    mean_saline = mean(dCT[treatment == "saline"], na.rm = TRUE),
+    diff = mean_fent - mean_saline,
+    .groups = "drop"
+  ) %>%
+  mutate(p_label = paste0("p = ", formatC(t_pvalue, format = "f", digits = 3)))
+
+# print results sorted by p-value
+t_results <- t_results %>% arrange(t_pvalue)
+t_results
+```
+
+```{r}
+
+
+y_pos <- dCT %>%
+  group_by(gene) %>%
+  summarise(y = max(dCT, na.rm = TRUE) + 0.3, .groups = "drop")
+
+sig_df <- t_results %>% left_join(y_pos, by = "gene")
+
+# 3) Boxplot + significance text
+pd <- position_dodge(width = 0.8)
+
+ggplot(dCT, aes(x = gene, y = dCT, fill = treatment)) +
+  geom_boxplot(width = 0.7, position = pd, outlier.alpha = 0.5) +
+ 
+  geom_text(
+    data = sig_df,
+    inherit.aes = FALSE,
+    aes(x = gene, y = y, label = p_label),
+    size = 3
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +  # extra headroom
+  labs(
+    title = "dCT (Gene − GAPDH) by Treatment with Welch’s t-test",
+    x = "Gene",
+    y = "dCT"
+  ) +
+   theme(plot.margin = margin(10, 15, 10, 15), plot.title = element_text(size = 12, hjust = 0.5, margin = margin(b = 10))) +   
+coord_cartesian(clip = "off")                 
+
+```
+
+```{r}
+dct_mean <- dCT %>%
+  group_by(gene, treatment) %>%
+  summarise(mean_dCT = mean(dCT, na.rm = TRUE), .groups = "drop")
+
+
+ddct <- dct_mean %>%
+  pivot_wider(names_from = treatment, values_from = mean_dCT) %>%
+  mutate(
+    ddCT = fent - saline,                 # ΔΔCT
+    fold_change = 2^(-ddCT),              # relative expression
+    log2_fc = -ddCT                       # log2 FC for plotting
+  )
+
+
+## 5) Plot log2 fold change (fent vs saline)
+ggplot(ddct, aes(x = gene, y = log2_fc)) +
+  geom_col() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(
+    title = "Fold Change (Fent vs Saline) via ddCT",
+    x = "Gene",
+    y = "log2(Fold Change)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)  # avoid guide position warnings
+  )
+```
+
+```{r}
+dCT_summary <- dCT %>%
+  dplyr::group_by(gene, treatment) %>%
+  dplyr::summarise(
+    mean_dCT = mean(dCT, na.rm = TRUE),
+    sd_dCT   = sd(dCT, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 2) Positioning
+pd  <- position_dodge(width = 0.6)
+pjd <- position_jitterdodge(jitter.width = 0.12, dodge.width = 0.6)
+
+# 3) Replicate dots + mean ± SD + p-value labels
+ggplot(dCT, aes(x = gene, y = dCT, color = treatment)) +
+  # all replicates as dots
+  geom_point(position = pjd, alpha = 0.7, size = 2) +
+
+  # mean ± SD per gene × treatment
+  geom_errorbar(
+    data = dCT_summary,
+    inherit.aes = FALSE,
+    aes(x = gene,
+        ymin = mean_dCT - sd_dCT,
+        ymax = mean_dCT + sd_dCT,
+        color = treatment),
+    position = pd,
+    width = 0.2,
+    linewidth = 0.6
+  ) +
+  geom_point(
+    data = dCT_summary,
+    inherit.aes = FALSE,
+    aes(x = gene, y = mean_dCT, color = treatment),
+    position = pd,
+    size = 2.8
+  ) +
+
+  # p-value labels you already computed
+  geom_text(
+    data = sig_df,
+    inherit.aes = FALSE,
+    aes(x = gene, y = y, label = p_label),
+    size = 3
+  ) +
+
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  labs(
+    title = "dCT (Gene − GAPDH) by Treatment with Welch’s t-test",
+    x = "Gene",
+    y = "dCT"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.margin = margin(10, 15, 10, 15),
+    plot.title  = element_text(size = 12, hjust = 0.5, margin = margin(b = 10))
+  ) +
+  coord_cartesian(clip = "off")
+```
+
+```{r}
+library(knitr)
+gene_names <- c("ACTB","PGK1","ENO1","BNIP3","Pdk1","EPO","SLC2a1","HIF1a")
+new_names  <- paste0(rep(gene_names, each = 3), "_", rep(1:3, times = length(gene_names)))
+
+# assume df already loaded; rename first 24 CT columns:
+ct_idx <- 1:24
+df <- df %>% rename_with(~ new_names, all_of(ct_idx))
+
+# ensure Sample id exists (for grouping)
+if (!"Sample" %in% names(df)) df$Sample <- paste0("S", seq_len(nrow(df)))
+
+df_long <- df %>%
+  pivot_longer(cols = all_of(new_names), names_to = "gene_rep", values_to = "CT") %>%
+  separate(gene_rep, into = c("gene","rep"), sep = "_", remove = TRUE) %>%
+  group_by(Sample, treatment, gene) %>%
+  summarise(mean_CT = mean(CT, na.rm = TRUE), .groups = "drop")
+
+gapdh <- df_long %>%
+  filter(gene == "ACTB") %>%
+  select(Sample, treatment, gapdh_CT = mean_CT)
+
+dCT <- df_long %>%
+  left_join(gapdh, by = c("Sample","treatment")) %>%
+  mutate(dCT = mean_CT - gapdh_CT) %>%
+  filter(gene != "ACTB") %>%
+  mutate(expr = 2^(-dCT))  # linearized per-sample
+
+by_trt <- dCT %>%
+  group_by(gene, treatment) %>%
+  summarise(
+    n         = dplyr::n(),
+    mean_dCT  = mean(dCT, na.rm = TRUE),
+    sd_dCT    = sd(dCT, na.rm = TRUE),
+    mean_expr = mean(expr, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# --- 4) ΔΔCT (fent − saline) and fold change 2^(−ΔΔCT) ---
+wide <- by_trt %>%
+  select(gene, treatment, mean_dCT, sd_dCT, mean_expr) %>%
+  pivot_wider(names_from = treatment, values_from = c(mean_dCT, sd_dCT, mean_expr), names_sep = ".")
+
+summary_tbl <- wide %>%
+  mutate(
+    ddCT        = mean_dCT.fent - mean_dCT.saline,
+    fold_change = 2^(-ddCT)
+  )
+
+# --- 5) OPTIONAL: Welch p-value on ΔCT per gene ---
+pvals <- dCT %>%
+  group_by(gene) %>%
+  summarise(p_value = tryCatch(t.test(dCT ~ treatment, var.equal = FALSE)$p.value, error = function(e) NA_real_),
+            .groups = "drop")
+
+summary_tbl <- summary_tbl %>% left_join(pvals, by = "gene")
+
+# --- 6) Make a neat display table (no gt) ---
+display_tbl <- summary_tbl %>%
+  transmute(
+    Gene = gene,
+    `ΔCT fent (mean±SD)`   = sprintf("%.3f ± %.3f", mean_dCT.fent,   sd_dCT.fent),
+    `ΔCT saline (mean±SD)` = sprintf("%.3f ± %.3f", mean_dCT.saline, sd_dCT.saline),
+    `ΔΔCT (fent - saline)` = sprintf("%.3f", ddCT),
+    `Fold change 2^-ΔΔCT`  = sprintf("%.3f", fold_change),
+    `2^-ΔCT fent (mean)`   = sprintf("%.3f", mean_expr.fent),
+    `2^-ΔCT saline (mean)` = sprintf("%.3f", mean_expr.saline),
+    `Welch p`              = ifelse(is.na(p_value), "—", formatC(p_value, format = "f", digits = 3))
+  ) %>%
+  arrange(Gene)
+
+# Render with knitr::kable (works great in Quarto PDF)
+kable(display_tbl, align = "lccccccc", caption = "qPCR Summary: ΔCT, ΔΔCT, linearized (2^-ΔCT), and fold change")
+
+```
+

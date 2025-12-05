@@ -1,0 +1,47 @@
+---
+title: "HW_Class06"
+author: "Mari Williams (PID: A15858833)"
+format: pdf
+---
+
+
+## Q6 function
+```{r}
+library(bio3d)
+
+```
+
+
+```{r}
+#This function will load in the PDB data and create 
+#plots of the B-factor values of the the Chain A alpha carbons
+
+#Define function with one input, the pdb code we want to analyse
+pro <- function(pdb_code){
+  
+  #loads in pdb data from the input code
+  s <- read.pdb(pdb_code)
+  
+  #Filters the pdb data to only include the atoms we want,
+  #in this case the alpha carbon atoms in chain A
+  s.chainA <- trim.pdb(s, chain ="A", elety="CA")
+  
+  #extracts the B-factor, which measures disorder/flexibility
+  s.b <-s.chainA$atom$b
+  
+  #Plots the b factors as a line plot, visualizing regions that 
+  #are more disordered than others
+  plotb3(s.b, sse=s.chainA,
+         typ="l", 
+         ylab="Bfactor", 
+         main = paste("B-factor plot for", pdb_code) ) 
+  
+
+}
+#call function invisibly to suppress R console response
+invisible(sapply(c("4AKE", "1AKE", "1E4Y"), pro))
+```
+```{r}
+mean()?
+```
+

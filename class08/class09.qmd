@@ -1,0 +1,178 @@
+---
+title: "class09"
+author: "Mari Williams (PID: A15858833)"
+format: gfm
+---
+### PDB database
+
+The main repository for stuctural data for biomolecules is the Protein Data Bank (PDB) https://www.rcsb.org
+```{r}
+df <- read.csv("Data Export Summary.csv")
+df
+```
+
+
+```{r}
+for (i in 2:ncol(df)) {
+  df[, i] <- as.numeric(gsub(",", "", df[, i]))
+}
+df
+```
+This redoes the columns as numbers, but there's an easier way
+
+```{r}
+library(readr)
+```
+
+```{r}
+df <- read_csv("Data Export Summary.csv")
+df
+```
+
+Q1: What percentage of structures in the PDB are solved by X-Ray and Electron Microscopy.
+```{r}
+sum(df$'X-ray') / sum(df$Total) *100
+sum(df$EM) / sum(df$Total) *100
+```
+Proportion of X-ray structures: `r sum(df[,2]) / sum(df[,9]) * 100` % 
+
+Proportion of EM structures: `r sum(df[,3]) / sum(df[,9]) * 100` % 
+
+
+Q2: What proportion of structures in the PDB are protein?
+```{r}
+(df[1,9] + df[2,9] + df[3,9]) / sum(df$Total) * 100
+```
+Proportion of proteins: `r (df[1,9] + df[2,9] + df[3,9]) / sum(df$Total) * 100` % 
+
+Q3. plot something
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+ggplot(df) + aes(`Molecular Type`, Total) + geom_col()
+```
+
+```{r}
+
+df_long <- df %>%
+  pivot_longer(
+    cols = -`Molecular Type`,
+    names_to = "Method",
+    values_to = "Count"
+  )%>%
+  filter(Method != "Total")
+
+
+df_totals <- df_long %>%
+  group_by(`Molecular Type`) %>%
+  summarise(total = sum(Count, na.rm = TRUE), .groups = "drop")
+
+df_long <- df_long %>%
+  left_join(df_totals, by = "Molecular Type")
+
+ggplot(df_long, aes(x = reorder(`Molecular Type`, -total), y = Count, fill = Method)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Protein Database composition by method and structure",
+    x = "Molecular Type",
+    y = "Total Number of Structures",
+    fill = "Experimental Method"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+Q3: Type HIV in the PDB website search box on the home page and determine how many HIV-1 protease structures are in the current PDB?
+
+4866
+
+
+### Visualizing structure data
+
+The Mol* viewer is embedded into websites like Uniprot and PDB
+
+![](1HSG.png)
+
+![](1HSG_2.png)
+
+
+### Bio3D package for structures
+
+```{r}
+library(bio3d)
+```
+```{r}
+hiv <- read.pdb("1hsg")
+hiv
+```
+```{r}
+head(hiv$atom)
+```
+```{r}
+chaina <- trim.pdb(hiv, chain="A")
+chainA.seq <- pdbseq(chaina)
+
+```
+
+```{r blast_hiv, cache=TRUE}
+
+blast <- blast.pdb(chainA.seq)
+```
+
+```{r}
+hits <- plot(blast)
+```
+
+### Prediction of functional motions
+
+We can run a Normal Mode Analysis (NMA) to predict the energetic of biomolecules
+
+```{r}
+adk <- read.pdb("1ake")
+adka <- trim.pdb(adk, chain="A")
+adka
+```
+
+```{r}
+m <- nma(adka)
+plot(m)
+```
+Trajectory analysis
+
+```{r}
+mktrj(m, file="adk_nma.pdb")
+```
+
+Install bio3dview from GitHub:
+ install pak (install.packages('pak'))
+ pak::pak("bioboot/bio3dview") 
+ 
+### Comparative analysis
+```{r}
+id <- "1ake_A"
+aa <- get.seq(id)
+
+```
+```{r, cache=TRUE}
+blast <- blast.pdb(aa)
+hits<- plot(blast)
+```
+```{r}
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+```
+```{r}
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+
+```
+```{r}
+pc.xray <- pca(pdbs)
+plot(pc.xray)
+```
+```{r}
+
+```
+ By bio3dview install isnt working, sorry
+ 
