@@ -10,6 +10,9 @@ changed
 - Class 06: [Functions](class06/class06.md)
 - Class 07: [PCA intro](class07/lab07.md)
 - Class 08: [Mini Project](class08/class08_mini.md)
+- Class 09: [PDB](class08/class09.md)
 - Class 10: [Halloween project](class08/class10.md)
+- Class 12: [DESeq](class12/class12.md)
+- Class 13: [MORE DEseq!](class12/class13.md)
 - Class 16: [Genomics](class16/class16.md)
 
