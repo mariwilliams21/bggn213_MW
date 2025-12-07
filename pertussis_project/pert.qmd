@@ -1,0 +1,200 @@
+---
+title: "Pertussis Mini Project"
+author: "Mari Williams (A15858833)"
+format: gfm
+---
+
+```{r, include=FALSE}
+cdc <- data.frame(
+                          Year = c(1922L,
+                                   1923L,1924L,1925L,1926L,1927L,1928L,
+                                   1929L,1930L,1931L,1932L,1933L,1934L,1935L,
+                                   1936L,1937L,1938L,1939L,1940L,1941L,
+                                   1942L,1943L,1944L,1945L,1946L,1947L,1948L,
+                                   1949L,1950L,1951L,1952L,1953L,1954L,
+                                   1955L,1956L,1957L,1958L,1959L,1960L,
+                                   1961L,1962L,1963L,1964L,1965L,1966L,1967L,
+                                   1968L,1969L,1970L,1971L,1972L,1973L,
+                                   1974L,1975L,1976L,1977L,1978L,1979L,1980L,
+                                   1981L,1982L,1983L,1984L,1985L,1986L,
+                                   1987L,1988L,1989L,1990L,1991L,1992L,1993L,
+                                   1994L,1995L,1996L,1997L,1998L,1999L,
+                                   2000L,2001L,2002L,2003L,2004L,2005L,
+                                   2006L,2007L,2008L,2009L,2010L,2011L,2012L,
+                                   2013L,2014L,2015L,2016L,2017L,2018L,
+                                   2019L,2020L,2021L,2022L,2023L),
+  No..Reported.Pertussis.Cases = c(107473,
+                                   164191,165418,152003,202210,181411,
+                                   161799,197371,166914,172559,215343,179135,
+                                   265269,180518,147237,214652,227319,103188,
+                                   183866,222202,191383,191890,109873,
+                                   133792,109860,156517,74715,69479,120718,
+                                   68687,45030,37129,60886,62786,31732,28295,
+                                   32148,40005,14809,11468,17749,17135,
+                                   13005,6799,7717,9718,4810,3285,4249,
+                                   3036,3287,1759,2402,1738,1010,2177,2063,
+                                   1623,1730,1248,1895,2463,2276,3589,
+                                   4195,2823,3450,4157,4570,2719,4083,6586,
+                                   4617,5137,7796,6564,7405,7298,7867,
+                                   7580,9771,11647,25827,25616,15632,10454,
+                                   13278,16858,27550,18719,48277,28639,
+                                   32971,20762,17972,18975,15609,18617,6124,
+                                   2116,3044,7063)
+)
+cdc
+```
+###Q1
+
+```{r}
+library(ggplot2)
+ggplot(cdc) +
+  geom_line(aes(x = Year, y = No..Reported.Pertussis.Cases)) +
+  labs(title = "Reported Pertussis Cases in the US (1922-2023)",
+       x = "Year",
+       y = "Number of Reported Cases") +
+  theme_minimal()
+```
+###Q2
+```{r}
+ggplot(cdc) +
+  geom_line(aes(x = Year, y = No..Reported.Pertussis.Cases)) +
+  labs(title = "Reported Pertussis Cases in the US (1922-2023)",
+       x = "Year",
+       y = "Number of Reported Cases") +
+  theme_minimal() + geom_vline(xintercept = 1946, linetype="dashed", 
+              color = "red", size=.5) +
+  annotate("text", x = 1950, y = 250000, label = " wP ", color = "red") + geom_vline(xintercept = 1996, linetype="dashed", 
+              color = "blue", size=.5) +
+  annotate("text", x = 2000, y = 250000, label = "aP ", color = "blue") +geom_vline(xintercept = 2020, linetype="dashed", 
+              color = "gray", size=.5) +
+  annotate("text", x = 2020, y = 250000, label = " COVID ", color = "gray") 
+
+```
+
+###Q3
+There is gradual increase in pertussis cases after the aP introduction, followed by a few spikes. This is likely due to a growing anti-vaccination movement in the US. It is also due to the fact that aP vaccines do not provide as long-lasting immunity as wP vaccines. The decrease in cases during the COVID-19 pandemic is likely due to social distancing and mask-wearing measures that were implemented to reduce the spread of COVID-19, which also reduced the spread of pertussis.
+
+```{r}
+(library(jsonlite))
+subject <- read_json("https://www.cmi-pb.org/api/subject", simplifyVector = TRUE) 
+
+```
+```{r}
+head(subject, 3)
+
+```
+##Q4, Q5, Q6
+
+```{r}
+table(subject$infancy_vac)
+table(subject$biological_sex)
+table(subject$biological_sex, subject$race)
+
+```
+
+###Q7 and Q8
+
+```{r}
+library(lubridate)
+for (i in 1:(length(subject$year_of_birth))) {
+  subject$age_years[i] <- as.numeric(time_length( today() - ymd(subject$year_of_birth[i]),  "years"))
+}
+
+```
+```{r}
+library(dplyr)
+ap <- subject %>% filter(infancy_vac == "aP")
+mean(ap$age_years, na.rm = TRUE)
+
+wp <- subject %>% filter(infancy_vac == "wP")
+mean(wp$age_years, na.rm = TRUE)
+```
+```{r}
+int <- ymd(subject$date_of_boost) - ymd(subject$year_of_birth)
+age_at_boost <- time_length(int, "year")
+head(age_at_boost)
+```
+
+
+```{r}
+ggplot(subject) +
+  aes(time_length(age_years, "year"),
+      fill=as.factor(infancy_vac)) +
+  geom_histogram(show.legend=FALSE) +
+  facet_wrap(vars(infancy_vac), nrow=2) +
+  xlab("Age in years")
+```
+Yes, wP group is older and more spread out
+
+
+```{r}
+specimen <- read_json("https://www.cmi-pb.org/api/specimen", simplifyVector = TRUE) 
+titer <- read_json("https://www.cmi-pb.org/api/plasma_ab_titer", simplifyVector = TRUE) 
+head(specimen)
+```
+##Q6
+
+##Q7
+```{r}
+unique(titer$antigen)
+```
+###Q8
+```{r}
+ggplot(titer)+ aes(MFI, antigen) +
+  geom_boxplot()
+```
+
+
+
+###Q9 and Q10
+
+```{r}
+library(dplyr)
+meta <- inner_join(specimen, subject)
+head(meta)
+dim(meta)
+abdata<- inner_join(meta, titer)
+head(abdata)
+dim(abdata)
+
+```
+###Q11
+
+```{r}
+table(abdata$isotype)
+```
+
+###Q12
+
+```{r}
+table(abdata$dataset)
+```
+There's 4 different dataset years. They decrease in size from 2020 to 2023, with 2023 being the smallest.
+
+##Q13
+```{r}
+igg <- abdata %>% filter(isotype == "IgG")
+ggplot(igg) +
+  aes(x = MFI_normalised, y = antigen) +
+  geom_boxplot() + 
+    xlim(0,75) +
+  facet_wrap(vars(visit), nrow=2)
+```
+
+### Q14 Time course analysis
+```{r}
+abdata.tc <- abdata %>% filter(dataset == "2021_dataset")
+
+abdata.tc %>% 
+  filter(isotype == "IgG",  antigen == "PT") %>%
+  ggplot() +
+    aes(x=planned_day_relative_to_boost,
+        y=MFI_normalised,
+        col=infancy_vac,
+        group=subject_id) +
+    geom_point() +
+    geom_line() +
+    geom_vline(xintercept=0, linetype="dashed") +
+    geom_vline(xintercept=14, linetype="dashed") +
+  labs(title="2023 dataset IgG PT")
+```
