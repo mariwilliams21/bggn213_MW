@@ -12,4 +12,5 @@ Mari Williams repo for bggn213!
 - Class 12: [DESeq](class12/class12.md)
 - Class 13: [MORE DEseq!](class12/class13.md)
 - Class 16: [Genomics](class16/class16.md)
+- Class 4: [R Fundamentals](Lab4/script1.pdf) (non-gfm)
 
