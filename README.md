@@ -1,7 +1,6 @@
 # bggn213_MW
-repo for bggn 213 classwork 2025 ucsd
+Mari Williams repo for bggn213!
 
-changed
 
 ### Class content
 - Class 05: [Data Viz with ggplot](class05/class05.md)
